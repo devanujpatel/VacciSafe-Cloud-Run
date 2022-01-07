@@ -83,14 +83,12 @@ def init_unix_connection_engine(db_config):
 
     return pool
 
+
+db = init_connection_engine()
+
 @app.route('/')
 def hello():
-    try:
-        global db
-        db = init_connection_engine()
-    except Exception as e:
-        return str(e)
-    
+
     with db.connect() as conn:
         vaccines = conn.execute(
             "SELECT count(*) FROM vaccines"
@@ -121,32 +119,49 @@ def register():
         address = user_data['address']
         city = user_data['city']
         dob_string = year_dob+ "-" + month_dob + "-" + day_dob
+        
         query = f"INSERT INTO patients(fname, lname, email, p_password, external_id, mobile_number, gender, dob, bloodgroup, addr, city) VALUES ('{fname}', '{lname}', '{email}', '{password}', '{email}', {mobile_number}, '{gender}', '{dob_string}', '{blood_group}', '{address}', '{city}')"
-        
+        query_pk = "SELECT patient_pk FROM patients WHERE email = '" + email + "'"
+
         logging.warning(query)
-        
+        logging.warning(query_pk)
+
         with db.connect() as conn:
             conn.execute(query)
-        
-        """ with db.connect() as conn:
-            query_pk = "SELECT patient_pk FROM patients WHERE email = " + email
-            logging.warning(query_pk)
-            pk_set = conn.execute(query_pk) # use fetchall()
-        
-         for row in pk_set:
-            logging.warning(row)
-        
-        logging.warning(str(pk_set))
+            pk_set = conn.execute(query_pk).fetchall()
 
-        return jsonify({"pk":pk_set})
-        """
+            logging.warning(pk_set)
 
-        # later a pk would be returned
-        return jsonify({"pk": "patient created!"})
+        # send pk and email to android
+        return jsonify({"pk":pk_set[0][0], "email":email})
 
     except Exception as e2:
-        return jsonify({"pk": str(e2)})
+        return jsonify({"pk": str(e2), "email":"error!"})
 
+# change GET in android
+@app.route('/log_in', methods=["POST", "GET"])
+def log_in():
+
+    user_credentials = request.json 
+    user_email = user_credentials["email"]
+    user_password = str(user_credentials["password"])
+
+    pwd_query = "SELECT p_password FROM patients WHERE email = '" +user_email+"'"
+
+    with db.connect() as conn:
+        stored_password = conn.execute(pwd_query).fetchall()
+
+    if stored_password:
+        try:
+            stored_password = stored_password[0][0]
+            if user_password == stored_password:
+                return jsonify({"is_valid": "true"})
+            else:
+                return jsonify({"is_valid": "false"})
+        except Exception as e:
+            return jsonify({"is_valid": "no record found"})
+    else:
+        return jsonify({"is_valid": "no record found"})
 
 
 if __name__ == '__main__':
