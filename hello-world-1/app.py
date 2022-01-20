@@ -7,6 +7,7 @@ import google.cloud.logging
 import logging
 import math
 import datetime
+import json
 
 app = Flask(__name__)
 
@@ -182,7 +183,7 @@ weeks: 3
 
 def make_vaccine_date(dob_date_obj, vaccines_master_tuples):
 
-    dob_date_obj = datetime.datetime.combine(dob_date_obj, datetime.time(0, 0))
+    dob_date_obj = datetime.datetime.combine(dob_date_obj, datetime.time(0, 0)).date()
     # this is a list containin dictionaries about vaccines (since tuples are immutable!)
     vaccines_master = []
 
@@ -218,7 +219,7 @@ def make_vaccine_date(dob_date_obj, vaccines_master_tuples):
         else:
             days = weeks * 7
         
-        date_v = datetime.datetime(int(dob_date_obj.strftime("%Y")) + years, int(dob_date_obj.strftime("%m")) + months, int(dob_date_obj.strftime("%d")) + days)
+        date_v = datetime.date(int(dob_date_obj.strftime("%Y")) + years, int(dob_date_obj.strftime("%m")) + months, int(dob_date_obj.strftime("%d")) + days)
         
         vaccines_master[-1]["date_v"] = date_v
 
@@ -285,15 +286,21 @@ def get_recommended_vaccines(email):
             
             conn.execute(query)
 
-    return jsonify({"vaccine_data":vaccines_master})
+    return jsonify({"vaccine_data":json.dumps(vaccines_master, default = str)})
 
 
 @app.route("/recommended_vaccines", methods=["GET", "POST"])
 def recommended_vaccines():
-    user_credentials = request.json 
-    user_email = user_credentials["email"]
-    user_password = str(user_credentials["password"])
+    #user_credentials = request.json 
+    #user_email = user_credentials["email"]
+    #user_password = str(user_credentials["password"])
     
+    user_email = request.args.get("email")
+    user_password = request.args.get("password")
+
+    logging.info(user_email)
+    logging.info(user_password)
+
     result = check_id(user_email, user_password)
 
     if result == True:
